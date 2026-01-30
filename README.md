@@ -2,7 +2,9 @@
 
 **SpeechAlignViz** is a web-based visualization tool for audio-text alignment. It allows researchers and developers to verify and interact with speech transcription segments (SRT, VTT, TextGrid, JSON) directly on the audio waveform.
 
-![SpeechAlignViz Logo](frontend/public/logo.svg)
+<p align="center">
+  <img src="frontend/public/logo.svg" width="200" alt="SpeechAlignViz Logo" />
+</p>
 
 ## Features
 
