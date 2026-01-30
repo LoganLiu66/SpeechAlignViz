@@ -113,7 +113,7 @@ const Visualizer = ({ audioUrl, transcript, onReady }) => {
     transcript.forEach((item, index) => {
       try {
         const isEven = index % 2 === 0;
-        const regionColor = isEven ? 'rgba(79, 70, 229, 0.2)' : 'rgba(99, 102, 241, 0.2)';
+        const regionColor = isEven ? 'rgba(53, 44, 227, 0.2)' : 'rgba(99, 102, 241, 0.2)';
 
         regionsRef.current.addRegion({
           start: item.start_time,

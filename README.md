@@ -20,6 +20,10 @@
   - Automatic audio-text synchronization.
 - **Local & Upload Support**: Load files from your local filesystem or upload them directly via the browser.
 
+<p align="center">
+  <img src="images/image.png" alt="Demo" />
+</p>
+
 ## Installation
 
 ### Prerequisites
