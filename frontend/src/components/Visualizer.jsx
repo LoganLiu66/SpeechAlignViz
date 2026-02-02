@@ -194,8 +194,17 @@ const Visualizer = ({ audioUrl, transcript, onReady }) => {
         {/* Waveform */}
         <div id="waveform" ref={containerRef} className="w-full" style={{ height: '128px' }} />
 
-        {/* Timeline */}
-        <div id="timeline" className="w-full" style={{ height: '24px' }} />
+        {/* Timeline - synced with waveform scroll */}
+        <div className="w-full overflow-hidden" style={{ height: '24px' }}>
+          <div
+            id="timeline"
+            style={{
+              width: `${Math.max(totalWidth, containerRef.current?.clientWidth || 800)}px`,
+              height: '24px',
+              transform: `translateX(-${scrollLeft}px)`,
+            }}
+          />
+        </div>
 
         {/* TEXT OVERLAY - Rendered separately from WaveSurfer */}
         {/* This guarantees text visibility as it's outside WaveSurfer's DOM */}

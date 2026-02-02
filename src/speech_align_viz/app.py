@@ -131,28 +131,73 @@ def parse_vtt(content: str) -> List[Dict[str, Any]]:
 
 def parse_textgrid(content: str) -> List[Dict[str, Any]]:
     """Parse Praat TextGrid format (simplified parser for interval tiers)."""
+    # TextGrid format can have multiple tiers. We split by item [n] to identify each tier.
+    
+    tiers = {}
+    
+    # Split content into tier blocks
+    tier_blocks = re.split(r'item\s*\[\d+\]:', content)
+    if len(tier_blocks) <= 1:
+        # Fallback to the original simple parsing if no item blocks are found
+        return _parse_simple_textgrid(content)
+    
+    # Skip the header (first block before any item [n])
+    for block in tier_blocks[1:]:
+        # Extract tier name
+        name_match = re.search(r'name\s*=\s*"([^"]*)"', block)
+        if not name_match:
+            continue
+        tier_name = name_match.group(1).lower()
+        
+        # Extract intervals within this tier
+        interval_pattern = re.compile(
+            r'xmin\s*=\s*([\d.]+)\s*\n\s*xmax\s*=\s*([\d.]+)\s*\n\s*text\s*=\s*"([^"]*)"',
+            re.MULTILINE
+        )
+        matches = interval_pattern.findall(block)
+        
+        segments = []
+        for xmin, xmax, text in matches:
+            text = text.strip()
+            if text:
+                segments.append({
+                    "text": text,
+                    "start_time": float(xmin),
+                    "end_time": float(xmax)
+                })
+        
+        if segments:
+            tiers[tier_name] = segments
+
+    # Prioritization logic: prefer "phones" over "words"
+    if "phones" in tiers:
+        return tiers["phones"]
+    elif "words" in tiers:
+        return tiers["words"]
+    # If neither is found, return the first available tier with data
+    elif tiers:
+        # Return the tier with the most segments, or just the first one
+        return next(iter(tiers.values()))
+    
+    return []
+
+
+def _parse_simple_textgrid(content: str) -> List[Dict[str, Any]]:
+    """Simple regex-based parsing for TextGrid without tier structure."""
     segments = []
-    
-    # Find all intervals with text
-    # TextGrid format has: xmin, xmax, text for each interval
-    
-    # Simple regex-based parsing for interval tiers
     interval_pattern = re.compile(
         r'xmin\s*=\s*([\d.]+)\s*\n\s*xmax\s*=\s*([\d.]+)\s*\n\s*text\s*=\s*"([^"]*)"',
         re.MULTILINE
     )
-    
     matches = interval_pattern.findall(content)
-    
     for xmin, xmax, text in matches:
         text = text.strip()
-        if text:  # Only include non-empty intervals
+        if text:
             segments.append({
                 "text": text,
                 "start_time": float(xmin),
                 "end_time": float(xmax)
             })
-    
     return segments
 
 
