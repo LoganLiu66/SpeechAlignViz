@@ -26,24 +26,16 @@
 
 ## Installation
 
-### Prerequisites
-- Python 3.8+
-- Node.js & npm (for frontend development)
-
-### Backend Setup
+### From PyPI (Coming soon!)
 ```bash
+pip install speech-align-viz
+```
+
+### From Source
+```bash
+git clone https://github.com/LoganLiu66/SpeechAlignViz.git
+cd SpeechAlignViz
 pip install -e .
-```
-Or install dependencies manually:
-```bash
-pip install -r requirements.txt
-```
-
-### Frontend Setup (Optional for development)
-```bash
-cd frontend
-npm install
-npm run dev
 ```
 
 ## Usage
