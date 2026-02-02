@@ -50,9 +50,20 @@ npm run dev
 
 Start the server using the CLI:
 ```bash
-speech-align-viz --port 8001 --host 0.0.0.0
+speech-align-viz serve --port 8001 --host 0.0.0.0
 ```
 Then open [http://0.0.0.0:8001](http://0.0.0.0:8001) in your browser.
+
+### CLI Figure Export
+You can generate a static alignment figure directly from the command line:
+
+```bash
+speech-align-viz export \
+  --audio ./examples/example.wav \
+  --subtitle ./examples/example.json \
+  --output-fig ./examples/example.png
+```
+*Note: The figure width is automatically calculated based on audio length to prevent overcrowding, but you can override it with `--width N`.*
 
 ### Loading Data
 1. **Audio**: Upload an audio file (mp3, wav, ogg) or provide a local path.
