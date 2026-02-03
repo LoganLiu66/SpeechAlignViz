@@ -1,21 +1,28 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import TimelinePlugin from 'wavesurfer.js/dist/plugins/timeline.esm.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 
 const Visualizer = ({ audioUrl, transcript, onReady }) => {
   const containerRef = useRef(null);
-  const textOverlayRef = useRef(null);
   const wavesurferRef = useRef(null);
-  const regionsRef = useRef(null);
-  const [zoom, setZoom] = useState(100); // px per second
+  const regionsPluginRef = useRef(null);
+
+  const [zoom, setZoom] = useState(100);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [scrollLeft, setScrollLeft] = useState(0);
 
-  // Initialize Wavesurfer
+  // Memoize syncScroll to fix the ReferenceError and allow safe reuse
+  const syncScroll = useCallback(() => {
+    if (wavesurferRef.current && wavesurferRef.current.renderer && wavesurferRef.current.renderer.scrollContainer) {
+      setScrollLeft(wavesurferRef.current.renderer.scrollContainer.scrollLeft);
+    }
+  }, []);
+
+  // Initialize WaveSurfer
   useEffect(() => {
     if (!containerRef.current || !audioUrl) return;
 
@@ -29,6 +36,7 @@ const Visualizer = ({ audioUrl, transcript, onReady }) => {
       barRadius: 3,
       height: 128,
       minPxPerSec: zoom,
+      fillParent: true,
       scrollParent: true,
       autoScroll: true,
       normalize: true,
@@ -36,11 +44,10 @@ const Visualizer = ({ audioUrl, transcript, onReady }) => {
 
     // Register Plugins
     const wsRegions = ws.registerPlugin(RegionsPlugin.create());
-    regionsRef.current = wsRegions;
+    regionsPluginRef.current = wsRegions;
 
-    ws.registerPlugin(TimelinePlugin.create({
-      container: '#timeline',
-    }));
+    // Initialize Timeline - by default it appends to the scrollable container
+    ws.registerPlugin(TimelinePlugin.create());
 
     // Events
     ws.on('ready', () => {
@@ -49,28 +56,25 @@ const Visualizer = ({ audioUrl, transcript, onReady }) => {
       if (onReady) onReady();
     });
 
-    ws.on('audioprocess', (t) => {
-      setCurrentTime(t);
-    });
-
-    ws.on('seek', (t) => {
-      setCurrentTime(t * ws.getDuration());
-    });
-
+    ws.on('audioprocess', (t) => setCurrentTime(t));
+    ws.on('seek', (t) => setCurrentTime(t * ws.getDuration()));
     ws.on('play', () => setIsPlaying(true));
     ws.on('pause', () => setIsPlaying(false));
 
-    // Sync scroll position for text overlay
-    const syncScroll = () => {
+    // Play from click position to end if not clicking a region
+    ws.on('interaction', () => {
+      ws.play();
+    });
+
+    // Attach scroll listener
+    let scrollContainer = null;
+    const attachScrollListener = () => {
       if (ws.renderer && ws.renderer.scrollContainer) {
-        setScrollLeft(ws.renderer.scrollContainer.scrollLeft);
+        scrollContainer = ws.renderer.scrollContainer;
+        scrollContainer.addEventListener('scroll', syncScroll);
       }
     };
-
-    // Listen to scroll events
-    if (ws.renderer && ws.renderer.scrollContainer) {
-      ws.renderer.scrollContainer.addEventListener('scroll', syncScroll);
-    }
+    setTimeout(attachScrollListener, 100);
 
     // Load audio
     const loadAudio = async () => {
@@ -86,79 +90,75 @@ const Visualizer = ({ audioUrl, transcript, onReady }) => {
     wavesurferRef.current = ws;
 
     return () => {
-      try {
-        if (ws.renderer && ws.renderer.scrollContainer) {
-          ws.renderer.scrollContainer.removeEventListener('scroll', syncScroll);
-        }
-        ws.destroy();
-      } catch (e) {
-        console.warn("Error destroying wavesurfer instance:", e);
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', syncScroll);
       }
+      ws.destroy();
     };
-  }, [audioUrl]);
+  }, [audioUrl, syncScroll]);
 
-  // Update Zoom
+  // Handle Zoom change
   useEffect(() => {
     if (wavesurferRef.current && isReady) {
       wavesurferRef.current.zoom(zoom);
     }
   }, [zoom, isReady]);
 
-  // Update Regions/Segments when transcript changes (for background colors and click handling)
+  // Update Regions when transcript changes
   useEffect(() => {
-    if (!wavesurferRef.current || !transcript || !regionsRef.current) return;
+    if (!wavesurferRef.current || !transcript || !regionsPluginRef.current) return;
 
-    regionsRef.current.clearRegions();
+    regionsPluginRef.current.clearRegions();
 
     transcript.forEach((item, index) => {
       try {
         const isEven = index % 2 === 0;
         const regionColor = isEven ? 'rgba(53, 44, 227, 0.2)' : 'rgba(99, 102, 241, 0.2)';
 
-        regionsRef.current.addRegion({
+        regionsPluginRef.current.addRegion({
           start: item.start_time,
           end: item.end_time,
           color: regionColor,
           drag: false,
           resize: false,
-          id: `segment-${index}`
+          id: `segment-${index}`,
         });
       } catch (e) {
         console.error("Error creating region for item:", item, e);
       }
     });
 
-    // Listen to region clicks to play
-    regionsRef.current.on('region-clicked', (region, e) => {
+    // Interaction handling
+    const onRegionClick = (region, e) => {
       e.stopPropagation();
-      if (wavesurferRef.current) {
-        wavesurferRef.current.play(region.start, region.end);
+      wavesurferRef.current.play(region.start, region.end);
+    };
+
+    regionsPluginRef.current.on('region-clicked', onRegionClick);
+
+    // Immediately sync scroll for labels
+    syncScroll();
+
+    return () => {
+      if (regionsPluginRef.current) {
+        regionsPluginRef.current.un('region-clicked', onRegionClick);
       }
-    });
+    };
+  }, [transcript, syncScroll]);
 
-    // Enable click-to-play on empty waveform areas
-    if (wavesurferRef.current) {
-      wavesurferRef.current.on('interaction', () => {
-        wavesurferRef.current.play();
-      });
-    }
-
-  }, [transcript]);
-
-  // Handle segment click from text overlay
-  const handleSegmentClick = (start, end) => {
+  // Handle segment click from React overlay
+  const handleLabelClick = (start, end) => {
     if (wavesurferRef.current && isReady) {
       wavesurferRef.current.play(start, end);
     }
   };
 
-  // Calculate effective zoom - WaveSurfer stretches short audio to fill container
+  // Calculate widths for manual labels
   const containerWidth = containerRef.current?.clientWidth || 800;
   const effectiveZoom = (isReady && duration > 0)
     ? Math.max(zoom, containerWidth / duration)
     : zoom;
 
-  // Calculate total width based on duration and effective zoom
   const totalWidth = duration * effectiveZoom;
 
   return (
@@ -189,65 +189,64 @@ const Visualizer = ({ audioUrl, transcript, onReady }) => {
         </div>
       </div>
 
-      {/* Waveform Area with Text Overlay */}
-      <div className="relative border rounded bg-white shadow-sm overflow-hidden">
-        {/* Waveform */}
-        <div id="waveform" ref={containerRef} className="w-full" style={{ height: '128px' }} />
+      {/* Waveform Area */}
+      <div className="relative border rounded bg-white shadow-sm overflow-hidden flex flex-col">
+        {/* Unified Waveform & Timeline Container */}
+        {/* height 160px: 128px for wave + ~32px for timeline */}
+        <div ref={containerRef} className="w-full relative" style={{ height: '160px' }}>
+          {/* WaveSurfer will render here */}
 
-        {/* Timeline - synced with waveform scroll */}
-        <div className="w-full overflow-hidden" style={{ height: '24px' }}>
+          {/* TEXT OVERLAY - Rendered separately from WaveSurfer DOM */}
+          {/* pointer-events-none ensures you can still drag/scroll the waveform */}
           <div
-            id="timeline"
+            className="absolute top-0 left-0 pointer-events-none w-full"
             style={{
-              width: `${Math.max(totalWidth, containerRef.current?.clientWidth || 800)}px`,
-              height: '24px',
-              transform: `translateX(-${scrollLeft}px)`,
+              height: '128px', // Covers only the waveform part
+              zIndex: 10,
             }}
-          />
-        </div>
+          >
+            {/* Inner relative container that follows the audio scroll */}
+            <div
+              className="relative h-full"
+              style={{
+                width: `${totalWidth}px`,
+                transform: `translateX(-${scrollLeft}px)`
+              }}
+            >
+              {transcript && transcript.map((item, index) => {
+                const left = item.start_time * effectiveZoom;
+                const width = (item.end_time - item.start_time) * effectiveZoom;
 
-        {/* TEXT OVERLAY - Rendered separately from WaveSurfer */}
-        {/* This guarantees text visibility as it's outside WaveSurfer's DOM */}
-        <div
-          ref={textOverlayRef}
-          className="absolute top-0 left-0 pointer-events-none"
-          style={{
-            width: `${Math.max(totalWidth, containerRef.current?.clientWidth || 800)}px`,
-            height: '128px',
-            transform: `translateX(-${scrollLeft}px)`,
-          }}
-        >
-          {transcript && transcript.map((item, index) => {
-            const left = item.start_time * effectiveZoom;
-            const width = (item.end_time - item.start_time) * effectiveZoom;
-            const isEven = index % 2 === 0;
-
-            return (
-              <div
-                key={index}
-                className="absolute top-0 flex items-start pointer-events-auto cursor-pointer"
-                style={{
-                  left: `${left}px`,
-                  width: `${width}px`,
-                  height: '100%',
-                  borderLeft: '2px solid rgba(255, 255, 255, 0.9)',
-                }}
-                onClick={() => handleSegmentClick(item.start_time, item.end_time)}
-                title={item.text}
-              >
-                <span
-                  className="text-xs font-semibold px-1 py-0.5 rounded whitespace-nowrap"
-                  style={{
-                    color: '#1e1b4b',
-                    textShadow: '0 0 4px white, 0 0 4px white, 0 0 2px white',
-                    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                  }}
-                >
-                  {item.text}
-                </span>
-              </div>
-            );
-          })}
+                return (
+                  <div
+                    key={index}
+                    className="absolute top-0 flex items-start"
+                    style={{
+                      left: `${left}px`,
+                      width: `${width}px`,
+                      height: '100%',
+                    }}
+                  >
+                    <span
+                      className="transcription-label"
+                      style={{
+                        position: 'absolute',
+                        top: '2px',
+                        left: '2px',
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLabelClick(item.start_time, item.end_time);
+                      }}
+                      title={item.text}
+                    >
+                      {item.text}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

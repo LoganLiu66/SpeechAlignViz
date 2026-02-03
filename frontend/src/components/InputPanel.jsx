@@ -3,7 +3,7 @@ import { Upload, Folder, FileText, Music } from 'lucide-react';
 
 const API_BASE = import.meta.env.DEV ? 'http://localhost:8000' : '';
 
-const InputPanel = ({ onAudioChange, onTranscriptChange }) => {
+const InputPanel = ({ onAudioChange, onTranscriptChange, isAudioLoaded }) => {
     const [activeAudioTab, setActiveAudioTab] = useState('upload'); // upload, local
     const [activeTranscriptTab, setActiveTranscriptTab] = useState('upload'); // upload, local
 
@@ -46,6 +46,11 @@ const InputPanel = ({ onAudioChange, onTranscriptChange }) => {
     };
 
     const handleTranscriptUpload = async (e) => {
+        if (!isAudioLoaded) {
+            alert('请先上传音频');
+            e.target.value = '';
+            return;
+        }
         const file = e.target.files[0];
         if (!file) return;
         const formData = new FormData();
@@ -67,6 +72,10 @@ const InputPanel = ({ onAudioChange, onTranscriptChange }) => {
     };
 
     const handleTranscriptLocal = async () => {
+        if (!isAudioLoaded) {
+            alert('请先上传音频');
+            return;
+        }
         if (!transcriptPathInput) return;
         try {
             const res = await fetch(`${API_BASE}/api/transcript/local`, {

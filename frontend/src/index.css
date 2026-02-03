@@ -6,13 +6,52 @@
 .overflow-y-auto::-webkit-scrollbar {
   width: 8px;
 }
+
 .overflow-y-auto::-webkit-scrollbar-track {
   background: #f1f1f1;
 }
+
 .overflow-y-auto::-webkit-scrollbar-thumb {
   background: #c7c7c7;
   border-radius: 4px;
 }
+
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
   background: #a0a0a0;
+}
+
+/* Transcription Label Styling (React-managed labels) */
+.transcription-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1e1b4b;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-shadow: 0 0 2px white;
+  white-space: nowrap;
+  pointer-events: auto;
+  z-index: 10;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.transcription-label:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+}
+
+/* Alternating label backgrounds for better differentiation */
+div:nth-child(even)>.transcription-label {
+  background-color: rgba(224, 231, 255, 0.95) !important;
+  /* Light Indigo */
+  border-color: rgba(165, 180, 252, 0.5) !important;
+}
+
+div:nth-child(odd)>.transcription-label {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  /* Pure White-ish */
+  border-color: rgba(229, 231, 235, 0.8) !important;
 }

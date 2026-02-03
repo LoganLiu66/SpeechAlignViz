@@ -39,6 +39,7 @@ function App() {
         <InputPanel
           onAudioChange={handleAudioChange}
           onTranscriptChange={handleTranscriptChange}
+          isAudioLoaded={!!audioUrl}
         />
 
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 min-h-[400px]">
