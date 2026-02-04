@@ -18,18 +18,11 @@ def build_frontend():
         print(f"Error building frontend: {e}")
         return False
 
-    # Copy build files to static directory
-    dist_dir = frontend_dir / "dist"
-    if not dist_dir.exists():
-        print(f"Error: {dist_dir} does not exist after build.")
+    if not static_dir.exists():
+        print(f"Error: {static_dir} does not exist after build.")
         return False
 
-    print(f"Copying build files to {static_dir}...")
-    if static_dir.exists():
-        shutil.rmtree(static_dir)
-    shutil.copytree(dist_dir, static_dir)
-
-    print("Frontend build and copy complete.")
+    print(f"Frontend built successfully in {static_dir}.")
     return True
 
 if __name__ == "__main__":
