@@ -26,7 +26,7 @@
 
 ## Installation
 
-### From PyPI (Coming soon!)
+### From PyPI
 ```bash
 pip install speech-align-viz
 ```
